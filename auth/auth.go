@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/backend/database"
 	"github.com/backend/utils"
 )
 
@@ -18,7 +19,7 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 	pwhash := utils.Hash(pw)
 
 	query := fmt.Sprintf("SELECT COUNT(*) as count FROM user where id='%s' and pw='%s'", id, pwhash)
-	rows, err := utils.DB().Query(query)
+	rows, err := database.DB().Query(query)
 	utils.HandleError(err)
 	defer rows.Close()
 

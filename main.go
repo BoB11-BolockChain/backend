@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -24,11 +23,11 @@ func hello(w http.ResponseWriter, r *http.Request) {
 }
 
 func getabs(w http.ResponseWriter, r *http.Request) {
-	addr := "http://domain:8888/api/v2/abilities"
+	addr := "http://www.pdxf.tk:8888/api/v2/abilities"
 	req, err := http.NewRequest("GET", addr, nil)
 	utils.HandleError(err)
 
-	req.Header.Add("admin", "admin123")
+	req.Header.Add("KEY", "ADMIN123")
 
 	client := http.Client{}
 	res, err := client.Do(req)
@@ -37,10 +36,8 @@ func getabs(w http.ResponseWriter, r *http.Request) {
 
 	b, err := io.ReadAll(res.Body)
 	utils.HandleError(err)
-	j, err := json.MarshalIndent(b, "", "  ")
-	utils.HandleError(err)
 
-	fmt.Fprint(w, string(j))
+	fmt.Fprint(w, string(b))
 }
 
 func Start(port int) {
