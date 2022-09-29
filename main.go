@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/backend/auth"
+	"github.com/backend/challenge"
 	"github.com/backend/utils"
 	"github.com/gorilla/mux"
 )
@@ -22,7 +23,7 @@ func hello(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "hello world")
 }
 
-func getabs(w http.ResponseWriter, r *http.Request) {
+func getAbilities(w http.ResponseWriter, r *http.Request) {
 	addr := "http://www.pdxf.tk:8888/api/v2/abilities"
 	req, err := http.NewRequest("GET", addr, nil)
 	utils.HandleError(err)
@@ -46,9 +47,11 @@ func Start(port int) {
 	router.Use(jsonContentTypeMiddleware)
 
 	router.HandleFunc("/", hello)
-	router.HandleFunc("/abilities", getabs)
+	router.HandleFunc("/abilities", getAbilities)
 
 	router.HandleFunc("/signin", auth.SignIn)
+
+	router.HandleFunc("/challenges:id", challenge.GetChallengeById)
 
 	log.Fatal(http.ListenAndServe(addr, router))
 }
