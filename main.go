@@ -49,6 +49,7 @@ func Start(port int) {
 	router.HandleFunc("/abilities", getabs)
 
 	router.HandleFunc("/signin", auth.SignIn)
+	router.HandleFunc("/signup", auth.SignUp)
 
 	log.Fatal(http.ListenAndServe(addr, router))
 }
