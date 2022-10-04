@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/backend/auth"
+	"github.com/backend/create"
 	"github.com/backend/utils"
 	"github.com/gorilla/mux"
 )
@@ -50,6 +51,8 @@ func Start(port int) {
 
 	router.HandleFunc("/signin", auth.SignIn)
 	router.HandleFunc("/signup", auth.SignUp)
+
+	router.HandleFunc("/docker", create.DockerRun)
 
 	log.Fatal(http.ListenAndServe(addr, router))
 }

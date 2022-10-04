@@ -1,9 +1,10 @@
 package auth
 
 import (
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"database/sql"
 
 	"github.com/backend/database"
 	"github.com/backend/utils"
@@ -11,22 +12,43 @@ import (
 
 var sessions map[string]string
 
-func SignUp(w http.ResponseWriter, r *http.Request){
+type User struct {
+	Email string
+	Id    string
+	Pw    string
+	Conpw string
+}
+
+type Login struct {
+	Id string
+	Pw string
+}
+
+func SignUp(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	r.ParseForm()
-	fmt.Fprint(w, r.Form)
-	email := r.FormValue("email")
-	id := r.FormValue("id")
-	pw := r.FormValue("pw")
-	pwhash := utils.Hash(pw)
+	// fmt.Fprint(w, r.Form)
+	var user User
+	json.NewDecoder(r.Body).Decode(&user)
+	fmt.Println(user)
 
-	var user string
+	pwhash := utils.Hash(user.Pw)
 
-	email_err := database.DB().QueryRow("SELECT email From user WHERE email=?", email).Scan(&user)
-	id_err := database.DB().QueryRow("SELECT id From user WHERE id=?", id).Scan(&user)
+	var newuser string
+
+	email_err := database.DB().QueryRow("SELECT email From user WHERE email=?", user.Email).Scan(&newuser)
+	id_err := database.DB().QueryRow("SELECT id From user WHERE id=?", user.Id).Scan(&newuser)
+
+	if user.Conpw != user.Pw {
+		fmt.Fprint(w, "비밀번호가 일치하지 않습니다.")
+		// http.Redirect(w, r, "URL_TO_LOGIN_PAGE", http.StatusSeeOther)
+
+	}
 
 	if email_err == sql.ErrNoRows && id_err == sql.ErrNoRows {
 		insert, _ := database.DB().Prepare("INSERT INTO user (email, id, pw) values(?, ?, ?)")
-		_, err := insert.Exec(email, id, pwhash)
+		_, err := insert.Exec(user.Email, user.Id, pwhash)
 		if err != nil {
 			utils.HandleError(email_err)
 		}
@@ -46,15 +68,17 @@ func SignUp(w http.ResponseWriter, r *http.Request){
 	}
 }
 
-
 func SignIn(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	r.ParseForm()
 	fmt.Fprint(w, r.Form)
-	id := r.FormValue("id")
-	pw := r.FormValue("pw")
-	pwhash := utils.Hash(pw)
+	var new Login
+	json.NewDecoder(r.Body).Decode(&new)
+	fmt.Println(new)
+	pwhash := utils.Hash(new.Pw)
 
-	query := fmt.Sprintf("SELECT COUNT(*) as count FROM user where id='%s' and pw='%s'", id, pwhash)
+	query := fmt.Sprintf("SELECT COUNT(*) as count FROM user where id='%s' and pw='%s'", new.Id, pwhash)
 	rows, err := database.DB().Query(query)
 	fmt.Println(query)
 	utils.HandleError(err)
