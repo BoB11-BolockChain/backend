@@ -5,12 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/backend/database"
 	"github.com/backend/utils"
+	"github.com/google/uuid"
 )
 
-var sessions map[string]string
+var sessions = map[string]session{}
+
+type session struct {
+	userid string
+	expiry time.Time
+}
 
 type User struct {
 	Email string
@@ -22,6 +29,10 @@ type User struct {
 type Login struct {
 	Id string
 	Pw string
+}
+
+func (s session) isExpired() bool {
+	return s.expiry.Before(time.Now())
 }
 
 func SignUp(w http.ResponseWriter, r *http.Request) {
@@ -90,14 +101,108 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 
 		if count == 1 {
 			//success
-			// sessions[id] = id
+			// Create a new random session token
+			sessionToken := uuid.NewString()
+			expiresAt := time.Now().Add(120 * time.Second)
+
+			sessions[sessionToken] = session{
+				userid: new.Id,
+				expiry: expiresAt,
+			}
+
+			http.SetCookie(w, &http.Cookie{
+				Name:    "session_token",
+				Value:   sessionToken,
+				Expires: expiresAt,
+			})
+
 			fmt.Println("hihi")
+			fmt.Println(sessionToken)
+
+			// c, err := r.Cookie("session_token")
+			// if err != nil {
+			// 	if err == http.ErrNoCookie {
+			// 	w.WriteHeader(http.StatusUnauthorized)
+			// 	return
+			// }
+			// w.WriteHeader(http.StatusBadRequest)
+			// return
+			// }
+			// sessionToken := c.Value
+			userSession, exists := sessions[sessionToken]
+			if !exists {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			if userSession.isExpired() {
+				delete(sessions, sessionToken)
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			fmt.Println(userSession)
+			w.Write([]byte(fmt.Sprintf("welcome, %s!", userSession.userid)))
+			fmt.Println("success!")
 			// http.Redirect(w, r, "URL_TO_MAIN_PAGE", http.StatusSeeOther)
 		} else {
 			//fail
 			fmt.Println("login fail")
 			fmt.Fprint(w, "로그인에 실패했습니다")
+			type Test struct {
+				Id   int    `json:"id"`
+				Name string `json:"name"`
+			}
+			u := Test{1, "Go"}
+			enc := json.NewEncoder(w)
+			w.Header().Set("Content-Type", "application/json")
+			enc.Encode(u)
 			// http.Redirect(w, r, "URL_TO_LOGIN_PAGE", http.StatusSeeOther)
+			return
 		}
 	}
+}
+
+func Welcome(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("session_token")
+	if err != nil {
+		if err == http.ErrNoCookie {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	sessionToken := c.Value
+	userSession, exists := sessions[sessionToken]
+	if !exists {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if userSession.isExpired() {
+		delete(sessions, sessionToken)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	w.Write([]byte(fmt.Sprintf("welcome, %s!", userSession.userid)))
+}
+
+func Logout(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("session_token")
+	if err != nil {
+		if err == http.ErrNoCookie {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	sessionToken := c.Value
+
+	delete(sessions, sessionToken)
+
+	http.SetCookie(w, &http.Cookie{
+		Name:    "session_cookie",
+		Value:   "",
+		Expires: time.Now(),
+	})
 }

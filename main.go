@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/backend/auth"
+	"github.com/backend/challenges"
 	"github.com/backend/create"
 	"github.com/backend/utils"
 	"github.com/gorilla/mux"
@@ -51,8 +52,14 @@ func Start(port int) {
 
 	router.HandleFunc("/signin", auth.SignIn)
 	router.HandleFunc("/signup", auth.SignUp)
+	router.HandleFunc("/logout", auth.Logout)
+	router.HandleFunc("/welcome", auth.Welcome)
+
+	router.HandleFunc("/challenges", challenges.ChInfo)
+	router.HandleFunc("/info", challenges.ViewInfo)
 
 	router.HandleFunc("/docker", create.DockerRun)
+	router.HandleFunc("/vagrant", create.VagrantRun)
 
 	log.Fatal(http.ListenAndServe(addr, router))
 }
