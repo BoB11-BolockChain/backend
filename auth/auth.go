@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var sessions = map[string]session{}
+var Sessions = map[string]session{}
 
 type session struct {
 	userid string
@@ -83,7 +83,7 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	r.ParseForm()
-	fmt.Fprint(w, r.Form)
+	// fmt.Fprint(w, r.Form)
 	var new Login
 	json.NewDecoder(r.Body).Decode(&new)
 	fmt.Println(new)
@@ -95,6 +95,8 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 	utils.HandleError(err)
 	defer rows.Close()
 
+	enc := json.NewEncoder(w)
+
 	for rows.Next() {
 		var count int
 		rows.Scan(&count)
@@ -103,9 +105,9 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 			//success
 			// Create a new random session token
 			sessionToken := uuid.NewString()
-			expiresAt := time.Now().Add(120 * time.Second)
+			expiresAt := time.Now().Add(180 * time.Second)
 
-			sessions[sessionToken] = session{
+			Sessions[sessionToken] = session{
 				userid: new.Id,
 				expiry: expiresAt,
 			}
@@ -113,48 +115,41 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 			http.SetCookie(w, &http.Cookie{
 				Name:    "session_token",
 				Value:   sessionToken,
+				Path: "/admin",
 				Expires: expiresAt,
 			})
 
-			fmt.Println("hihi")
 			fmt.Println(sessionToken)
 
-			// c, err := r.Cookie("session_token")
-			// if err != nil {
-			// 	if err == http.ErrNoCookie {
-			// 	w.WriteHeader(http.StatusUnauthorized)
-			// 	return
-			// }
-			// w.WriteHeader(http.StatusBadRequest)
-			// return
-			// }
-			// sessionToken := c.Value
-			userSession, exists := sessions[sessionToken]
+			userSession, exists := Sessions[sessionToken]
 			if !exists {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 			if userSession.isExpired() {
-				delete(sessions, sessionToken)
+				delete(Sessions, sessionToken)
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 			fmt.Println(userSession)
-			w.Write([]byte(fmt.Sprintf("welcome, %s!", userSession.userid)))
+			data := struct {
+				SessionId string `json:"sessionId"`
+			}{userSession.userid}
+
+			enc.Encode(data)
+			fmt.Println(data)
 			fmt.Println("success!")
-			// http.Redirect(w, r, "URL_TO_MAIN_PAGE", http.StatusSeeOther)
 		} else {
 			//fail
 			fmt.Println("login fail")
 			fmt.Fprint(w, "로그인에 실패했습니다")
-			type Test struct {
-				Id   int    `json:"id"`
-				Name string `json:"name"`
-			}
-			u := Test{1, "Go"}
-			enc := json.NewEncoder(w)
-			w.Header().Set("Content-Type", "application/json")
-			enc.Encode(u)
+			// type Test struct {
+			// 	Id   int    `json:"id"`
+			// 	Name string `json:"name"`
+			// }
+			// u := Test{1, "Go"}
+			// w.Header().Set("Content-Type", "application/json")
+			// enc.Encode(u)
 			// http.Redirect(w, r, "URL_TO_LOGIN_PAGE", http.StatusSeeOther)
 			return
 		}
@@ -172,13 +167,13 @@ func Welcome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sessionToken := c.Value
-	userSession, exists := sessions[sessionToken]
+	userSession, exists := Sessions[sessionToken]
 	if !exists {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 	if userSession.isExpired() {
-		delete(sessions, sessionToken)
+		delete(Sessions, sessionToken)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -198,7 +193,7 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 
 	sessionToken := c.Value
 
-	delete(sessions, sessionToken)
+	delete(Sessions, sessionToken)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:    "session_cookie",
