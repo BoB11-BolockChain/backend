@@ -3,6 +3,7 @@ package challenges
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/backend/utils"
@@ -10,20 +11,20 @@ import (
 
 // v4.0.0
 type OperationReqBody struct {
-	jitter               string
-	autonomous           int
-	group                string
-	use_learning_parsers bool
-	objective            interface{}
-	adversary            interface{}
-	auto_close           bool
-	visibility           int
-	name                 string
-	id                   string
-	obfuscator           string
-	planner              interface{}
-	state                string
-	source               interface{}
+	Jitter               string
+	Autonomous           int
+	Group                string
+	Use_learning_parsers bool
+	Objective            interface{}
+	Adversary            interface{}
+	Auto_close           bool
+	Visibility           int
+	Name                 string
+	Id                   string
+	Obfuscator           string
+	Planner              interface{}
+	State                string
+	Source               interface{}
 }
 
 // Required: "name", "adversary.adversary_id", "planner.planner_id", and "source.id"
@@ -40,6 +41,7 @@ var operationURL = "http://pdxf.tk:8888/api/v2/operations"
 func CreateOperation(w http.ResponseWriter, r *http.Request) {
 	required := RequiredFields{}
 	json.NewDecoder(r.Body).Decode(&required)
+	fmt.Print(required)
 
 	body, _ := json.Marshal(required)
 	req, err := http.NewRequest("POST", operationURL, bytes.NewBuffer(body))
@@ -56,6 +58,8 @@ func CreateOperation(w http.ResponseWriter, r *http.Request) {
 		Id string `json:"id"`
 	}{}
 	json.NewDecoder(res.Body).Decode(&resOperation)
+
+	fmt.Print(resOperation)
 
 	json.NewEncoder(w).Encode(resOperation)
 }

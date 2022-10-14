@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -31,7 +32,9 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 func hello(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "hello world")
+	d := make(map[string]interface{})
+
+	json.NewEncoder(w).Encode(d)
 }
 
 func getabs(w http.ResponseWriter, r *http.Request) {
@@ -70,8 +73,8 @@ func Start(port int) {
 	router.HandleFunc("/challenges", challenges.ChInfo)
 	router.HandleFunc("/info", challenges.ViewInfo)
 
-	router.HandleFunc("/createch", challenges.InsertData)
-	router.HandleFunc("/createch2", challenges.InsertData2)
+	router.HandleFunc("/createchallenges", challenges.InsertData)
+	// router.HandleFunc("/createch2", challenges.InsertData2)
 
 	router.HandleFunc("/getch", challenges.PrintData)
 	router.HandleFunc("/basic", challenges.LoadBasic)
@@ -86,6 +89,7 @@ func Start(port int) {
 	router.HandleFunc("/operation", caldera.GetOperationId)
 
 	router.HandleFunc("/dashboard", challenges.SocketEndpoint)
+	router.HandleFunc("/createoperation", challenges.CreateOperation)
 
 	log.Fatal(http.ListenAndServe(addr, router))
 }

@@ -17,7 +17,7 @@ const URL = "http://pdxf.tk:8888/api/v2/"
 const ID = "9f4bd985-13b8-418b-be6c-5c2f5ba74829"
 
 type OperationReport struct {
-	Name       string
+	Name       string `json:"name"`
 	Start      string
 	Host_group []interface{} `json:"host_group"`
 	Steps      interface{}   `json:"steps"`
@@ -30,32 +30,32 @@ type OperationReport struct {
 }
 
 type Operations []struct {
-	jitter               string
-	autonomous           int
-	group                string
-	chain                interface{}
-	use_learning_parsers bool
-	objective            interface{}
-	adversary            interface{}
-	auto_close           bool
-	visibility           int
-	name                 string
-	id                   string
-	obfuscator           string
-	host_group           []interface{}
-	planner              interface{}
-	state                string
-	start                string
-	source               interface{}
+	Jitter               string
+	Autonomous           int
+	Group                string
+	Chain                interface{}
+	Use_learning_parsers bool
+	Objective            interface{}
+	Adversary            interface{}
+	Auto_close           bool
+	Visibility           int
+	Name                 string `json:"name"`
+	Id                   string `json:"id"`
+	Obfuscator           string
+	Host_group           []interface{}
+	Planner              interface{}
+	State                string
+	Start                string
+	Source               interface{}
 }
 
-type Dummydata struct {
-	UserId      string `json:"userId"`
-	Status      string `json:"status"`
-	ChallengeId string `json:"challengeId"`
-}
+// type Dummydata struct {
+// 	UserId      string `json:"userId"`
+// 	Status      string `json:"status"`
+// 	ChallengeId string `json:"challengeId"`
+// }
 
-var dummy []Dummydata = []Dummydata{{"user1", "good", "chall1"}, {"user1", "good", "chall1"}}
+// var dummy []Dummydata = []Dummydata{{"user1", "good", "chall1"}, {"user1", "good", "chall1"}}
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
