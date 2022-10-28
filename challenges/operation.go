@@ -27,27 +27,33 @@ type OperationReqBody struct {
 	Source               interface{}
 }
 
-// Required: "name", "adversary.adversary_id", "planner.planner_id", and "source.id"
 type RequiredFields struct {
-	Name         string `json:"name"`
-	Adversary_id string `json:"adversary_id"`
-	Planner_id   string `json:"planner_id"`
-	Source_id    string `json:"source_id"`
-	Group        string `json:"group"`
+	Name      string `json:"name"`
+	Adversary struct {
+		AdversaryID string `json:"adversary_id"`
+	} `json:"adversary"`
+	Planner struct {
+		ID string `json:"id"`
+	} `json:"planner"`
+	Source struct {
+		ID string `json:"id"`
+	} `json:"source"`
+	Group string `json:"group"`
+	State string `json:"state"`
 }
 
-var operationURL = "http://pdxf.tk:8888/api/v2/operations"
+var operationURL = "http://www.pdxf.tk:8888/api/v2/operations"
 
 func CreateOperation(w http.ResponseWriter, r *http.Request) {
 	required := RequiredFields{}
 	json.NewDecoder(r.Body).Decode(&required)
-	fmt.Print(required)
-
 	body, _ := json.Marshal(required)
 	req, err := http.NewRequest("POST", operationURL, bytes.NewBuffer(body))
 	utils.HandleError(err)
 
 	req.Header.Add("KEY", "ADMIN123")
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("Content-Type", "application/json; charset=utf-8")
 
 	client := &http.Client{}
 	res, err := client.Do(req)
@@ -59,7 +65,7 @@ func CreateOperation(w http.ResponseWriter, r *http.Request) {
 	}{}
 	json.NewDecoder(res.Body).Decode(&resOperation)
 
-	fmt.Print(resOperation)
+	fmt.Print("operation created ", resOperation.Id)
 
 	json.NewEncoder(w).Encode(resOperation)
 }

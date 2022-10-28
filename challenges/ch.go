@@ -53,9 +53,6 @@ func ViewInfo(w http.ResponseWriter, r *http.Request) {
 		var deletechall DeleteChall
 		json.NewDecoder(r.Body).Decode(&deletechall)
 		if deletechall.Crud == "Remove" {
-			// query := "delete from challenge where num=?"
-			// _, err := database.DB().Exec(query, deletechall.Num)
-
 			branch_query := "select num from branch where chall_num=?"
 			row, err := database.DB().Query(branch_query, deletechall.Num)
 			if err != nil {
@@ -63,23 +60,39 @@ func ViewInfo(w http.ResponseWriter, r *http.Request) {
 			}
 			defer row.Close()
 
-			var count int
+			var branch_num int
 			for row.Next() {
-				row.Scan(&count)
-				fmt.Println(count)
+				row.Scan(&branch_num)
+				fmt.Println(branch_num)
 				fmt.Println("--")
+
+				abil_del_query := "delete from ability where branch_num=?"
+				_, ad_err := database.DB().Exec(abil_del_query, branch_num)
+				if ad_err != nil {
+					panic(ad_err)
+				} else {
+					fmt.Println("어빌리티 제거")
+				}
+
+				branch_del_query := "delete from branch where chall_num=?"
+				_, bd_err := database.DB().Exec(branch_del_query, deletechall.Num)
+				if bd_err != nil {
+					panic(bd_err)
+				}
+				fmt.Println("branch 제거")
 			}
 
-			// query := "delete from branch where chall_num=?"
-			// _, err := database.DB().Exec(query, deletechall.Num)
-			// query := "delete from ability where branch_num=?"
-			// _, err := database.DB().Exec(query, deletechall.Num)
+			chall_del_query := "delete from challenge where num=?"
+			_, cd_err := database.DB().Exec(chall_del_query, deletechall.Num)
+			if cd_err != nil {
+				panic(cd_err)
+			}
 		}
 	}
 
 	var info View
 	var sendInfo []View
-	query := "select num, title, desc, score, os from challenge where num=?"
+	query := "select num, title, desc, score, os from challenge order by num desc limit ?,1"
 	rows, err := database.DB().Query("select count(*) from challenge")
 	utils.HandleError(err)
 	defer rows.Close()
@@ -92,8 +105,7 @@ func ViewInfo(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println(count)
 
-	for i := 1; i <= count; i++ {
-
+	for i := 0; i < count; i++ {
 		fmt.Println(i)
 		row := database.DB().QueryRow(query, i)
 		switch err := row.Scan(&info.Num, &info.Title, &info.Desc, &info.Score, &info.Os); err {
@@ -125,7 +137,7 @@ func ChInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	r.ParseForm()
-	var challenges Challenge
+	var challenge Challenge
 	var value int
 
 	id, err := strconv.Atoi(r.URL.Query().Get("id"))
@@ -133,14 +145,14 @@ func ChInfo(w http.ResponseWriter, r *http.Request) {
 	value = id
 	fmt.Println(value)
 
-	query := "select num, title, desc, os, score from challenges where num=?"
+	query := "select num, title, desc, os, score from challenge where num=?"
 	print(query)
 	row := database.DB().QueryRow(query, value)
 	print(row)
-	err = row.Scan(&challenges.Num, &challenges.Title, &challenges.Desc, &challenges.Os, &challenges.Score)
+	err = row.Scan(&challenge.Num, &challenge.Title, &challenge.Desc, &challenge.Os, &challenge.Score)
 	print(err)
 
-	b, err := json.Marshal(challenges)
+	b, err := json.Marshal(challenge)
 	if err != nil {
 		log.Fatalf("JSON marshaling failed: %s", err)
 	}

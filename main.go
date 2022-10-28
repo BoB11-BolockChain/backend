@@ -31,6 +31,16 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func optionMethodBanMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodOptions {
+			next.ServeHTTP(w, r)
+		} else {
+			w.Write([]byte("message from option block middleware"))
+		}
+	})
+}
+
 func hello(w http.ResponseWriter, r *http.Request) {
 	d := make(map[string]interface{})
 
@@ -60,6 +70,7 @@ func Start(port int) {
 	router := mux.NewRouter()
 	router.Use(jsonContentTypeMiddleware)
 	router.Use(corsMiddleware)
+	router.Use(optionMethodBanMiddleware)
 
 	router.HandleFunc("/", hello)
 	router.HandleFunc("/abilities", getabs)
@@ -89,7 +100,8 @@ func Start(port int) {
 	router.HandleFunc("/operation", caldera.GetOperationId)
 
 	router.HandleFunc("/dashboard", challenges.SocketEndpoint)
-	router.HandleFunc("/createoperation", challenges.CreateOperation)
+	router.HandleFunc("/createoperation", challenges.CreateOperation).Methods("POST")
+	// 메소드 지정할수 잇내요^^;
 
 	log.Fatal(http.ListenAndServe(addr, router))
 }

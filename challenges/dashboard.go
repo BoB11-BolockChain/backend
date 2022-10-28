@@ -14,19 +14,40 @@ import (
 
 // caldera data. should be replaced with challenge db
 const URL = "http://pdxf.tk:8888/api/v2/"
-const ID = "9f4bd985-13b8-418b-be6c-5c2f5ba74829"
 
 type OperationReport struct {
-	Name       string `json:"name"`
-	Start      string
+	Name       string        `json:"name"`
+	Start      string        `json:"start"`
 	Host_group []interface{} `json:"host_group"`
 	Steps      interface{}   `json:"steps"`
-	Finish     bool
+	Finish     bool          `json:"finish"`
 	Planner    string
 	Adversary  interface{}
 	Jitter     string
 	Objectives interface{}
 	Facts      []interface{}
+}
+
+// OperationReport.Steps {[paw]:[]Steps, [paw]:[]Steps}
+type Step struct {
+	LinkID           string    `json:"link_id"`
+	AbilityID        string    `json:"ability_id"`
+	Command          string    `json:"command"`
+	PlaintextCommand string    `json:"plaintext_command"`
+	Delegated        time.Time `json:"delegated"`
+	Run              time.Time `json:"run"`
+	Status           int       `json:"status"`
+	Platform         string    `json:"platform"`
+	Executor         string    `json:"executor"`
+	Pid              int       `json:"pid"`
+	Description      string    `json:"description"`
+	Name             string    `json:"name"`
+	Attack           struct {
+		Tactic        string `json:"tactic"`
+		TechniqueName string `json:"technique_name"`
+		TechniqueID   string `json:"technique_id"`
+	} `json:"attack"`
+	Output string `json:"output"`
 }
 
 type Operations []struct {
@@ -48,14 +69,6 @@ type Operations []struct {
 	Start                string
 	Source               interface{}
 }
-
-// type Dummydata struct {
-// 	UserId      string `json:"userId"`
-// 	Status      string `json:"status"`
-// 	ChallengeId string `json:"challengeId"`
-// }
-
-// var dummy []Dummydata = []Dummydata{{"user1", "good", "chall1"}, {"user1", "good", "chall1"}}
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -91,7 +104,7 @@ func getReport(url string) OperationReport {
 
 	j := OperationReport{}
 	json.NewDecoder(res.Body).Decode(&j)
-	fmt.Println("Loop")
+	fmt.Println("Loop byid")
 	return j
 }
 

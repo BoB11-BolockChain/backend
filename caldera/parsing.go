@@ -1,10 +1,7 @@
 package caldera
 
 import (
-	"fmt"
-	"io"
 	"net/http"
-	"strings"
 	// "github.com/utils"
 )
 
@@ -49,13 +46,13 @@ func GetOperationId(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	bytes, _ := io.ReadAll(resp.Body)
-	str := string(bytes)
-	// fmt.Println(resp.Body)
-	// var jsonId newId
-	// var val string
-	val := (strings.Trim(str, "[]"))
-	fmt.Println(val)
+	// bytes, _ := io.ReadAll(resp.Body)
+	// str := string(bytes)
+	// // fmt.Println(resp.Body)
+	// // var jsonId newId
+	// // var val string
+	// val := (strings.Trim(str, "[]"))
+	// fmt.Println(val)
 	// fmt.Println(jsonId)
 
 	// slice := strings.Split(str, " ")
