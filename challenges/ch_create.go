@@ -87,7 +87,7 @@ func LoadBasic(w http.ResponseWriter, r *http.Request) {
 	var b_count int
 	var b_name string
 	test := make(map[string]interface{})
-	test["delete"] = make([]string, 0)
+	// test["delete"] = make([]string, 0)
 
 	branch_count := "SELECT max(branch_num) from basic where name=1"
 	row, err := database.DB().Query(branch_count)
@@ -97,17 +97,17 @@ func LoadBasic(w http.ResponseWriter, r *http.Request) {
 	for row.Next() {
 		row.Scan(&b_count)
 	}
-	fmt.Println(b_count)
+	// fmt.Println(b_count)
 
 	for i := 1; i <= b_count; i++ {
-		print(i)
-		branch_num := fmt.Sprintf("Branch%d", i)
+		// print(i)
+		branch_num := fmt.Sprintf("Branch%02d", i)
 		query := "SELECT branch, payload, abilityname from basic where name=1 AND branch=? ORDER BY branch, seq"
-		print(query)
+		// print(query)
 		rows, err := database.DB().Query(query, branch_num)
-		print(rows)
+		// print(rows)
 
-		fmt.Println(err)
+		utils.HandleError(err)
 		defer rows.Close()
 
 		var data []Send
@@ -117,15 +117,15 @@ func LoadBasic(w http.ResponseWriter, r *http.Request) {
 			var pay string
 			var abname string
 			rows.Scan(&b_name, &pay, &abname)
-			fmt.Println(b_name)
+			// fmt.Println(b_name)
 			data = append(data, Send{pay, abname})
-			fmt.Println(data)
+			// fmt.Println(data)
 
 		}
-		fmt.Println(b_name)
+		// fmt.Println(b_name)
 		test[b_name] = data
 	}
-
+	fmt.Println(("잘 되는 중~"))
 	dataBytes, _ := json.Marshal(test)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(dataBytes)
