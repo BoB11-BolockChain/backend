@@ -10,31 +10,41 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type data struct {
+// type data struct {
+// 	Data []struct {
+// 		Branch []struct {
+// 			Seq         int    `json:"Sequence"`
+// 			Payload     string `json:"Payload"`
+// 			Abilityname string `json:"AbilityName"`
+// 		} `json:"Branch"`
+// 		//Delete string `json:Delete`
+// 	} `json:"data"`
+// 	Info struct {
+// 		Title       string `json:"Title"`
+// 		Description string `json:"Description"`
+// 		Scenario_id       int    `json:"Scenario_id"`
+// 		Sequence          string `json:"Sequence"`
+// 	} `json:"info"`
+// }
+
+type Scenario struct {
+	Title     string `json:"title"`
+	Desc      string `json:"desc"`
+	System        string `json:"system"`
+	VMOptions []struct {
+	   Name    string `json:"name"`
+	   Command string `json:"command"`
+	} `json:"vm-options"`
 	Data []struct {
-		Branch []struct {
-			Seq         int    `json:"Sequence"`
-			Payload     string `json:"Payload"`
-			Abilityname string `json:"AbilityName"`
-		} `json:"Branch"`
-		//Delete string `json:Delete`
+	   Tactic   string   `json:"tactic"`
+	   Payloads []string `json:"payloads"`
 	} `json:"data"`
-	Info struct {
-		Title       string `json:"Title"`
-		Description string `json:"Description"`
-		Score       int    `json:"Score"`
-		Os          string `json:"OS"`
-	} `json:"info"`
-}
+ }
 
-type Send struct {
-	Payload     string `json:"Payload"`
-	Abilityname string `json:"AbilityName"`
-}
-
-type Sendbranch struct {
-	BranchName []Send
-}
+// type Send struct {
+// 	Payload     string `json:"Payload"`
+// 	Abilityname string `json:"AbilityName"`
+// }
 
 func InsertData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -46,20 +56,38 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&ch_dat)
 		fmt.Println(ch_dat)
 		fmt.Println(ch_dat.Data)
-		fmt.Println(ch_dat.Data[0].Branch[0].Payload)
-		chall_insert, _ := database.DB().Prepare("INSERT INTO challenge (num, title, desc, os, score) VALUES (NULL, ?, ?, ?, ?)")
-		_, err := chall_insert.Exec(ch_dat.Info.Title, ch_dat.Info.Description, ch_dat.Info.Os, ch_dat.Info.Score)
+		sce_insert, _ := database.DB().Prepare("INSERT INTO scenario (id, title, description, system) VALUES (NULL, ?, ?, ?)")
+		_, err := sce_insert.Exec(ch_dat.Scenario.Title, ch_dat.Scenario.Description, ch_dat.Scenario.System)
 		if err != nil {
 			utils.HandleError(err)
 		}
-		var chall_num int
-		call_num_query := "SELECT num FROM challenge WHERE title=? ORDER BY rowid DESC LIMIT 1"
-		row := database.DB().QueryRow(call_num_query, ch_dat.Info.Title)
-		row.Scan(&chall_num)
 
-		for i, branch := range ch_dat.Data {
-			branch_insert, _ := database.DB().Prepare("INSERT INTO branch (num, chall_num, seq) VALUES (NULL, ?, ?)")
-			_, err := branch_insert.Exec(chall_num, i+1)
+		vm_insert, _ := database.DB().Prepare("INSERT INTO vm_option (id, title, command) VALUES (NULL, ?, ?)")
+		_, err := vm_insert.Exec(ch_dat.Scenario.Data.Name, ch_dat.Scenario.Data.Command)
+		if err != nil {
+			utils.HandleError(err)
+		}
+		
+		chall_insert, _ := database.DB().Prepare("INSERT INTO challenge (id, title, description, scenario_id, sequence) VALUES (NULL, ?, ?, ?, ?)")
+		_, err := chall_insert.Exec(ch_dat.Scenario.Title, ch_dat.Scenario.Description, ch_dat.Scenario.Scenario_id, ch_dat.Scenario.Sequence)
+		if err != nil {
+			utils.HandleError(err)
+		}
+
+		pay_insert, _ := database.DB().Prepare("INSERT INTO challenge (id, title, description, scenario_id, sequence) VALUES (NULL, ?, ?, ?, ?)")
+		_, err := chall_insert.Exec(ch_dat.Scenario.Title, ch_dat.Scenario.Description, ch_dat.Scenario.Scenario_id, ch_dat.Scenario.Sequence)
+		if err != nil {
+			utils.HandleError(err)
+		}
+
+		var sce_num int
+		sce_num_query := "SELECT id FROM scenario WHERE title=? ORDER BY rowid DESC LIMIT 1"
+		row := database.DB().QueryRow(sce_num_query, ch_dat.makeScenario.Title)
+		row.Scan(&sce_num)
+
+		for i, challenge := range ch_dat.Data {
+			challenge_insert, _ := database.DB().Prepare("INSERT INTO challenge (id, title, description, scenario_id, sequence) VALUES (NULL, ?, ?, ?)")
+			_, err := challenge_insert.Exec(chall_num, i+1)
 			if err != nil {
 				utils.HandleError(err)
 			}
@@ -125,7 +153,7 @@ func LoadBasic(w http.ResponseWriter, r *http.Request) {
 		// fmt.Println(b_name)
 		test[b_name] = data
 	}
-	fmt.Println(("잘 되는 중~"))
+	// fmt.Println(("잘 되는 중~"))
 	dataBytes, _ := json.Marshal(test)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(dataBytes)
