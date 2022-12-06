@@ -2,7 +2,6 @@ package caldera
 
 import (
 	"net/http"
-	// "github.com/utils"
 )
 
 type Operation struct {
