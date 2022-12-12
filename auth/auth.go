@@ -15,8 +15,11 @@ import (
 var Sessions = map[string]session{}
 
 type session struct {
-	userid string
-	expiry time.Time
+	userid 		string
+	expiry 		time.Time
+	auth		string
+	vmname		string
+	vmexpiry	time.Time
 }
 
 type User struct {
@@ -53,12 +56,10 @@ func SignUp(w http.ResponseWriter, r *http.Request) {
 
 	if user.Conpw != user.Pw {
 		fmt.Fprint(w, "비밀번호가 일치하지 않습니다.")
-		// http.Redirect(w, r, "URL_TO_LOGIN_PAGE", http.StatusSeeOther)
-
 	}
 
 	if email_err == sql.ErrNoRows && id_err == sql.ErrNoRows {
-		insert, _ := database.DB().Prepare("INSERT INTO user (email, id, pw) values(?, ?, ?)")
+		insert, _ := database.DB().Prepare("INSERT INTO user (email, id, pw, auth) values(?, ?, ?, 'user')")
 		_, err := insert.Exec(user.Email, user.Id, pwhash)
 		if err != nil {
 			utils.HandleError(email_err)
@@ -89,7 +90,7 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(new)
 	pwhash := utils.Hash(new.Pw)
 
-	query := fmt.Sprintf("SELECT COUNT(*) as count FROM user where id='%s' and pw='%s'", new.Id, pwhash)
+	query := fmt.Sprintf("SELECT COUNT(*) as count, auth FROM user where id='%s' and pw='%s'", new.Id, pwhash)
 	rows, err := database.DB().Query(query)
 	fmt.Println(query)
 	utils.HandleError(err)
@@ -99,7 +100,8 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 		var count int
-		rows.Scan(&count)
+		var auth string
+		rows.Scan(&count, &auth)
 
 		if count == 1 {
 			//success
@@ -110,12 +112,15 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 			Sessions[sessionToken] = session{
 				userid: new.Id,
 				expiry: expiresAt,
+				auth: auth,
+				vmname: "",
+				vmexpiry: expiresAt,
 			}
 
 			http.SetCookie(w, &http.Cookie{
 				Name:    "session_token",
 				Value:   sessionToken,
-				Path: "/admin",
+				Path:    "/admin",
 				Expires: expiresAt,
 			})
 

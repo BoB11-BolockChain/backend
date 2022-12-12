@@ -2,7 +2,6 @@ package board
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/backend/database"
@@ -30,13 +29,11 @@ func Notification(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		var crudNoti CrudNotify
 		json.NewDecoder(r.Body).Decode(&crudNoti)
-		fmt.Println(crudNoti.Crud)
 		switch crudNoti.Crud {
 		case "Edit":
 			return
 		case "Remove":
 			query := "delete from notification where num=?"
-			fmt.Println(query)
 			_, err := database.DB().Exec(query, crudNoti.Num)
 			if err != nil {
 				panic(err)
@@ -62,8 +59,6 @@ func Notification(w http.ResponseWriter, r *http.Request) {
 		row.Scan(&count)
 	}
 	for i := 0; i < count; i++ {
-
-		fmt.Println(i)
 		row := database.DB().QueryRow(query, i)
 		switch err := row.Scan(&noti_ret.Num, &noti_ret.Title, &noti_ret.Content, &noti_ret.Author, &noti_ret.CreatedDate, &noti_ret.Views); err {
 		case nil:
@@ -77,7 +72,4 @@ func Notification(w http.ResponseWriter, r *http.Request) {
 		Data []Notifications `json:"data"`
 	}{noti_retn}
 	json.NewEncoder(w).Encode(data)
-	fmt.Println(data)
-
-	fmt.Println("게시글 정보 전송 완료")
 }

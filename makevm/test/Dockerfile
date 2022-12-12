@@ -1,0 +1,8 @@
+# gotty 설치를 위한 repository 설정
+RUN curl -o /etc/yum.repos.d/home_radiorabe_misc.repo http://download.opensuse.org/repositories/home:/radiorabe:/misc/CentOS_7/home:radiorabe:misc.repo
+# gotty 설치
+RUN yum install -y gotty-bin
+# gotty를 container 외부에서 접속 할 수 있는 port 오픈 (8088)
+EXPOSE 9200 9300 8088
+# 실행 명령어
+CMD ["gotty", "--permit-write", "--reconnect", "-p", "8088", "/bin/bash", "&", "/usr/sbin/sshd", "-D"]
