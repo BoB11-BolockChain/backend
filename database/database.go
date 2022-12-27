@@ -17,13 +17,3 @@ func DB() *sql.DB {
 	}
 	return db
 }
-
-func SaveUser(query string) sql.Result {
-	res, err := DB().Exec(query)
-	utils.HandleError(err)
-	return res
-}
-
-func CloseDB() {
-	db.Close()
-}
