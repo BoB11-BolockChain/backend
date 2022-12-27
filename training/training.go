@@ -16,13 +16,14 @@ type data struct {
 }
 
 type Scenario struct {
-	Id			int			`json:"scene_id"`
+	Id          int         `json:"scene_id"`
 	Title       string      `json:"scene_title"`
 	Description string      `json:"scene_desc"`
 	System      string      `json:"system"`
-	Vm			string		`json:"vm_name"`
-	Vmid		string		`json:"vm_id"`
-	Vmpw		string		`json:"vm_pw"`
+	Vm          string      `json:"vm_name"`
+	Vmid        string      `json:"vm_id"`
+	Vmpw        string      `json:"vm_pw"`
+	Visible     string      `json:"visible"`
 	Challenge   []Challenge `json:"challenge"`
 }
 
@@ -71,16 +72,11 @@ func Training(w http.ResponseWriter, r *http.Request) {
 
 			for i := 0; i < scene_count; i++ {
 				var scene Scenario
-				var visibleCheck int
-				err := database.DB().QueryRow(scene_query, i).Scan(&scene.Id, &scene.Title, &scene.Description, &scene.System, &scene.Vm, &scene.Vmid, &scene.Vmpw, &visibleCheck)
+				err := database.DB().QueryRow(scene_query, i).Scan(&scene.Id, &scene.Title, &scene.Description, &scene.System, &scene.Vm, &scene.Vmid, &scene.Vmpw, &scene.Visible)
 				if err != nil {
 					panic(err)
 				}
 
-				if visibleCheck == 0 {
-					continue
-				}
-				
 				data.Scenario = append(data.Scenario, scene)
 
 				row, err := database.DB().Query("SELECT COUNT(*) FROM challenge WHERE scenario_id=?", scene.Id)

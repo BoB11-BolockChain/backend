@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/backend/database"
@@ -40,6 +41,12 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 
 		r := db.QueryRow("select c.title from solved_challenge s inner join challenge c on s.solved_challenge_id=c.id where s.user_id=? order by s.solved_time desc;", user.Id)
 		r.Scan(&user.LastSolution)
+
+		r2 := db.QueryRow("select solved_time from solved_challenge where user_id=? ORDER BY solved_time DESC limit 1;", user.Id)
+		r2.Scan(&user.LastConnection)
+		fmt.Println("시간 : ")
+		fmt.Print(user.LastConnection)
+
 		users = append(users, user)
 	}
 

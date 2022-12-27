@@ -19,6 +19,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/backend/caldera"
+	"github.com/backend/database"
+	"github.com/backend/utils"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -166,9 +169,10 @@ func AccessWindows(w http.ResponseWriter, r *http.Request) {
 }
 
 type accesslinuxuser struct {
-	Image_ID string
-	System   string
-	Username string
+	Image_ID   string
+	System     string
+	Username   string
+	ScenarioId int
 }
 
 func AccessLinux(w http.ResponseWriter, r *http.Request) {
@@ -304,10 +308,8 @@ func RtExcuteCMD(script string, arg ...string) string {
 	cmd := exec.Command(script, arg...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Println(string(output))
-		fmt.Println((err))
-	} else {
-		fmt.Println(string(output))
+		// fmt.Println(string(output))
+		fmt.Println("hi")
 	}
 	return string(output)
 }
@@ -1156,10 +1158,10 @@ func InstallAgent(System string, UserID string, SSHuser string, SSHpass string) 
 			Cert: Gpass,
 		}
 		ExcuteCMD("sh", "-c", "ssh-keyscan -t rsa "+winip+" >> ~/.ssh/known_hosts")
-		fmt.Println(SSHpass + SSHuser + "fufufufck" + Guser + Gpass)
-		fmt.Println(client)
+		// fmt.Println(SSHpass + SSHuser + "fufufufck" + Guser + Gpass)
+		// fmt.Println(client)
 		server := "http://pdxf.tk:8888"
-		group := UserID
+		group := UserID + "_win"
 		address := "C:\\Users\\Public\\win_splunkd.exe"
 		fmt.Println("start")
 		ExcuteCMD("sh", "-c", "sshpass -p "+Gpass+" scp ..//user_windows/agent/win_splunkd.exe "+Guser+"@"+winip+":..//Public")
@@ -1179,7 +1181,7 @@ func InstallAgent(System string, UserID string, SSHuser string, SSHpass string) 
 		fmt.Println(Docker_ID)
 		R_Docker_ID := RemoveStar(Docker_ID)
 		server := "http://pdxf.tk:8888"
-		group := UserID
+		group := UserID + "_li"
 		RtExcuteCMD("sh", "-c", "docker exec "+R_Docker_ID+" apt update")
 		RtExcuteCMD("sh", "-c", "docker exec "+R_Docker_ID+" apt install -y curl")
 		RtExcuteCMD("sh", "-c", "docker cp ..//user_windows/agent/linux_splunkd "+R_Docker_ID+":/")
@@ -1197,15 +1199,20 @@ func Operation_Start_Linux(w http.ResponseWriter, r *http.Request) {
 	// ssh
 	go InstallAgent(tempdata.System, tempdata.Username, "pdxf", "pdxf")
 
-	//공격 실행 - 창선
+	linkRequiredBase := caldera.PotentialLinkBody{Paw: tempdata.Username + "_li"}
+	linkRequiredBase.Ability.Name = ""
+	linkRequiredBase.Executor.Platform = "linux"
+	linkRequiredBase.Executor.Name = "sh"
+	Attack(tempdata.ScenarioId, tempdata.Username, linkRequiredBase)
 }
 
 type accesswindowuseragent struct {
-	VMname   string
-	Username string
-	System   string
-	SSHuser  string
-	SSHpass  string
+	VMname     string
+	Username   string
+	System     string
+	SSHuser    string
+	SSHpass    string
+	ScenarioId int
 }
 
 func Operation_Start_Windows(w http.ResponseWriter, r *http.Request) {
@@ -1214,8 +1221,123 @@ func Operation_Start_Windows(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	var vncwindows accesswindowuseragent
 	json.NewDecoder(r.Body).Decode(&vncwindows)
-	// ssh 연결
+	// ssh
 	go InstallAgent(vncwindows.System, vncwindows.Username, vncwindows.SSHuser, vncwindows.SSHpass)
 
-	//공격 실행 - 창선
+	linkRequiredBase := caldera.PotentialLinkBody{Paw: vncwindows.Username + "_win"}
+	linkRequiredBase.Ability.Name = ""
+	linkRequiredBase.Executor.Platform = "windows"
+	linkRequiredBase.Executor.Name = "psh"
+	Attack(vncwindows.ScenarioId, vncwindows.Username, linkRequiredBase)
 }
+
+func Attack(scenarioId int, userName string, linkBase caldera.PotentialLinkBody) {
+	db := database.DB()
+
+	row := db.QueryRow("select count(*) from challenge where scenario_id=?", scenarioId)
+	var challCount int
+	err := row.Scan(&challCount)
+	utils.HandleError(err)
+
+	row = db.QueryRow("select count(*) from solved_challenge where solved_challenge_id in (select c.id from scenario s inner join challenge c on s.id=c.scenario_id where s.id=?) and user_id=?", scenarioId, userName)
+	var lastChallNum int
+	err = row.Scan(&lastChallNum)
+	utils.HandleError(err)
+
+	adversary := []string{}
+	currentChallengingSeq := challCount
+	if lastChallNum < challCount {
+		currentChallengingSeq = lastChallNum + 1
+	}
+
+	log.Printf("challcount:%d lastChallnum:%d currentchallseq:%d\n", challCount, lastChallNum, currentChallengingSeq)
+
+	// be sure that no duplicate in solved_challenge
+	challRows, err := db.Query("select id from challenge where scenario_id=? and sequence<=?", scenarioId, currentChallengingSeq)
+	utils.HandleError(err)
+
+	for challRows.Next() {
+		var chId int
+		challRows.Scan(&chId)
+		payloadRows, err := db.Query("select p.payload from payload p inner join tactic t on t.id=p.tactic_id where t.challenge_id=?", chId)
+		utils.HandleError(err)
+
+		for payloadRows.Next() {
+			var payload string
+			payloadRows.Scan(&payload)
+			adversary = append(adversary, payload)
+		}
+	}
+
+	for !caldera.IsAgentAlive(linkBase.Paw, linkBase.Executor.Name) {
+		log.Printf("Agent Check %s failed. Sleep 5 sec.\n", linkBase.Paw)
+		time.Sleep(5 * time.Second)
+	}
+
+	operationName := fmt.Sprintf("%s-%d-%d-%s", userName, scenarioId, currentChallengingSeq, linkBase.Executor.Platform)
+	operationCreated := caldera.CreateOperation(operationName, linkBase.Paw)
+	rows, err := db.Query("select operation_id from solved_scenario where user_id=? and solved_scenario_id=?", userName, scenarioId)
+	utils.HandleError(err)
+	if rows.Next() {
+		db.Exec("update solved_scenario set operation_id=? where user_id=? and solved_scenario_id=?", operationCreated, userName, scenarioId)
+	} else {
+		db.Exec("insert into solved_scenario(user_id,solved_scenario_id,operation_id) values(?,?,?)", userName, scenarioId, operationCreated)
+	}
+
+	for _, v := range adversary {
+		linkBase.Executor.Command = v
+		caldera.AddPotentialLink(operationCreated, linkBase)
+	}
+	log.Println("attack finished")
+}
+
+// func Attack(scenarioId int, userName string, linkBase caldera.PotentialLinkBody) {
+// 	db := database.DB()
+
+// 	row := db.QueryRow("select count(*) from challenge where scenario_id=?", scenarioId)
+// 	var challCount int
+// 	err := row.Scan(&challCount)
+// 	utils.HandleError(err)
+
+// 	row = db.QueryRow("select count(*) from solved_challenge where solved_challenge_id in (select c.id from scenario s inner join challenge c on s.id=c.scenario_id where s.id=?) and user_id=?", scenarioId, userName)
+// 	var lastChallNum int
+// 	err = row.Scan(&lastChallNum)
+// 	utils.HandleError(err)
+
+// 	// adversary := []string{}
+// 	adversary:=[]struct{payloads []string
+// 		delay int}{}
+// 	currentChallengingSeq := challCount
+// 	if lastChallNum < challCount {
+// 		currentChallengingSeq = lastChallNum + 1
+// 	}
+
+// 	log.Printf("challcount:%d lastChallnum:%d currentchallseq:%d\n", challCount, lastChallNum, currentChallengingSeq)
+
+// 	// be sure that no duplicate in solved_challenge
+// 	challRows, err := db.Query("select id from challenge where scenario_id=? and sequence<=?", scenarioId, currentChallengingSeq)
+// 	utils.HandleError(err)
+
+// 	for challRows.Next() {
+// 		var chId int
+// 		challRows.Scan(&chId)
+// 		tacticRows, err := db.Query("select id,delay from tactic where challenge_id=?", chId)
+// 		utils.HandleError(err)
+
+// 		for tacticRows.Next() {
+// 			var tacticId,delay int
+// 			tacticRows.Scan(&tacticId,delay)
+// 			payloadRows,err:=db.Query("select payload from payload where tactic_id=?",tacticId)
+// 			utils.HandleError(err)
+
+// 			pts:=[]string{}
+// 			for payloadRows.Next(){
+// 				var pay string
+// 				payloadRows.Scan(&pay)
+// 				pts = append(pts, pay)
+// 			}
+// 			adversary = append(adversary, struct{payloads []string; delay int}{pts,delay})
+// 			payloadRows.Close()
+// 		}
+// 		tacticRows.Close()
+// 	}

@@ -1,6 +1,7 @@
 package caldera
 
 import (
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -15,7 +16,7 @@ type Operation struct {
 	Jitter               string
 	Autonomous           int
 	Group                string
-	Chain                interface{}
+	Chain                interface{} `json:"chain"`
 	Use_learning_parsers bool
 	Objective            interface{}
 	Adversary            interface{}
@@ -44,11 +45,16 @@ func SocketEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	userId := r.URL.Query().Get("userId")
 	scenarioId := r.URL.Query().Get("scenarioId")
-	db := database.DB()
-	row := db.QueryRow("select operation_id from solved_scenario where user_id=? and solved_scenario_id=?", userId, scenarioId)
 
+	db := database.DB()
+
+	row := db.QueryRow("select operation_id from solved_scenario where user_id=? and solved_scenario_id=?", userId, scenarioId)
 	var operationId string
 	err = row.Scan(&operationId)
+	if err == sql.ErrNoRows {
+		log.Print("operation not found from database.")
+		return
+	}
 	utils.HandleError(err)
 
 	for {
@@ -59,8 +65,13 @@ func SocketEndpoint(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
+		if data.Id == "" {
+			log.Print("operation not found from caldera.")
+			break
+		}
+
 		if data.State == "finished" {
-			log.Print("operation finished.")
+			log.Print("connection closed : operation finished")
 			break
 		}
 
@@ -76,8 +87,9 @@ func connAliveCheck(conn *websocket.Conn) bool {
 	conn.SetReadDeadline(time.Now().Add(15 * time.Second))
 	_, _, err := conn.ReadMessage()
 	if err != nil {
+		// utils.HandleError(err)
+		log.Println(err)
 		conn.Close()
-		log.Println("read timeout")
 		return false
 	}
 	return true

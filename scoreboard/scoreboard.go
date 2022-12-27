@@ -1,10 +1,12 @@
 package scoreboard
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
+	"sort"
 
 	"github.com/backend/database"
 	// "github.com/backend/utils"
@@ -12,10 +14,20 @@ import (
 )
 
 type ScoreValue struct {
-	Num    int        `json:"num"`
-	Id     string     `json:"id"`
-	Score  int        `json:"score"`
-	Solved []SolvedCh `json:"solved"`
+	Num     int        `json:"num"`
+	Id      string     `json:"id"`
+	Score   int        `json:"score"`
+	Total int `json:"total"`
+	IR      int        `json:"IR"`
+	Org     string     `json:"org"`
+	Comment string     `json:"comment"`
+	Solved  []SolvedCh `json:"solved"`
+}
+
+type IrScore struct {
+	UserId string `json:"userid"`
+	Sce_Id int    `json:"sce_id"`
+	Score  int    `json:"score"`
 }
 
 type SendAll struct {
@@ -29,6 +41,7 @@ type UserId struct {
 
 type SolvedCh struct {
 	Scenario_title string      `json:"scenario_title"`
+	IrScore        int         `json:"irscore"`
 	Challenges     []Challenge `json:"challenge"`
 }
 
@@ -81,18 +94,30 @@ func GetScore(w http.ResponseWriter, r *http.Request) {
 	line_query := "SELECT score, solved_time from solved_challenge inner join challenge on solved_challenge.solved_challenge_id = challenge.id where user_id=? ORDER by solved_time limit ?,1;"
 	point_query := "SELECT count(*) from solved_challenge inner join challenge on solved_challenge.solved_challenge_id = challenge.id where user_id=? "
 
-	time_query := "SELECT solved_time from solved_challenge ORDER BY solved_time limit 1"
+	additional_info_query := "SELECT organization, comment from user where id=?"
+
+	ir_score_query := "SELECT score from solved_ir_score where user_id=? and sce_id=?"
+
+	// sum_query := "SELECT sum(challenge.score), sum(solved_ir_score), user_id from solved_challenge inner join challenge on solved_challenge.solved_challenge_id = challenge.id group by user_id ORDER BY sum(score) DESC limit ?,1;"
+
+	inital_time_query := "SELECT solved_time from solved_challenge ORDER BY solved_time limit 1"
+	last_time_query := "SELECT solved_time from solved_challenge ORDER BY solved_time DESC limit 1"
 	var initial_time string
-	row = database.DB().QueryRow(time_query)
+	var last_time string
+	var ir_score_sum int
+	row = database.DB().QueryRow(inital_time_query)
+	inverse_row := database.DB().QueryRow(last_time_query)
 	row.Scan(&initial_time)
-	fmt.Println(initial_time)
+	inverse_row.Scan(&last_time)
+	// fmt.Println(initial_time)
+	// fmt.Println(last_time)
 	time_parsing, err := time.Parse("2006-01-02 15:04:05", initial_time)
 	if err != nil {
 		panic(err)
 	}
 	convMinutes, _ := time.ParseDuration("10m")
 	time_deduct := time_parsing.Add(-convMinutes).Format("2006-01-02 15:04:05")
-	fmt.Println(time_deduct)
+	// fmt.Println(time_deduct)
 
 	if 10 < count {
 		count = 10
@@ -101,23 +126,34 @@ func GetScore(w http.ResponseWriter, r *http.Request) {
 	for i := 0; i < count; i++ {
 		scoredata.Num = i + 1
 		row := database.DB().QueryRow(query, i)
+		
 		switch err := row.Scan(&scoredata.Score, &scoredata.Id); err {
 		case nil:
-			fmt.Println(scoredata)
+			// fmt.Println(scoredata)
 			row := database.DB().QueryRow(sce_count_query, scoredata.Id)
+			row2 := database.DB().QueryRow(additional_info_query, scoredata.Id)
+			row2.Scan(&scoredata.Org, &scoredata.Comment)
 			var sce_count int
 			row.Scan(&sce_count)
-			fmt.Println(sce_count)
+			// fmt.Println("여기에 정보 >> ")
 			for j := 0; j < sce_count; j++ {
 				var sce_id int
 				row := database.DB().QueryRow(sce_query, scoredata.Id, j)
+
 				switch err := row.Scan(&sce_id); err {
 				case nil:
+
 					var chdatapack []Challenge
 					var solvedpack SolvedCh
 					var ch_count int
 					var chdata Challenge
 					title_row := database.DB().QueryRow(sce_title_query, sce_id)
+					row2 := database.DB().QueryRow(ir_score_query, scoredata.Id, sce_id)
+					row2.Scan(&solvedpack.IrScore)
+					// fmt.Println("여 기 나 와")
+					ir_score_sum += solvedpack.IrScore
+					// fmt.Println(solvedpack.IrScore)
+
 					title_row.Scan(&solvedpack.Scenario_title)
 					ch_count_row := database.DB().QueryRow(ch_count_query, scoredata.Id, sce_id)
 					ch_count_row.Scan(&ch_count)
@@ -126,16 +162,22 @@ func GetScore(w http.ResponseWriter, r *http.Request) {
 						ch_row.Scan(&chdata.Challenge_title, &chdata.Time, &chdata.Score)
 						// fmt.Println(chdata)
 						chdatapack = append(chdatapack, chdata)
-						fmt.Println(chdatapack)
+						// fmt.Println(chdatapack)
 					}
 					solvedpack.Challenges = chdatapack
 					// fmt.Println(solvedpack)
 					scoredata.Solved = append(scoredata.Solved, solvedpack)
-					fmt.Println(scoredata.Solved)
+					// fmt.Println(scoredata.Solved)
+					scoredata.IR = ir_score_sum
+					ir_score_sum = 0
 				}
 			}
+			scoredata.Total = scoredata.Score + scoredata.IR
 			scoresend = append(scoresend, scoredata)
 			scoredata = ScoreValue{}
+		case sql.ErrNoRows:
+			//park
+			continue
 		default:
 			panic(err)
 		}
@@ -173,10 +215,18 @@ func GetScore(w http.ResponseWriter, r *http.Request) {
 						panic(err)
 					}
 				}
+				graphdata.Score = score_sum
+				graphdata.Time = time.Now().Format("2006-01-02 15:04:05")
+				graphsend = append(graphsend, graphdata)
 				score_sum = 0
 			}
 		}
 	}
+
+	sort.Slice(scoresend, func(i, j int) bool {
+		return scoresend[i].Total > scoresend[j].Total
+	})
+
 	// fmt.Println(graphsend)
 	data := struct {
 		Data []ScoreValue `json:"data"`

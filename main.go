@@ -82,6 +82,10 @@ func Start(port int) {
 	router.HandleFunc("/logout", auth.Logout)
 	router.HandleFunc("/welcome", auth.Welcome)
 	router.HandleFunc("/profile", auth.UserInfo)
+
+	router.HandleFunc("/profilepage", auth.ProfilePage)
+	router.HandleFunc("/profileSave", auth.SaveProfile)
+	router.HandleFunc("/uploadimg", auth.UploadImg)
 	//H4uN
 	router.HandleFunc("/makevm", makevm.UploadsHandler)
 	router.HandleFunc("/makeqcow", makevm.Makevmfile)
@@ -142,7 +146,9 @@ func Start(port int) {
 
 func main() {
 	var port int
-	scoreboard.Cal()
+	// var dummyscore string
+	// dummyscore = "pdxf"
+	// scoreboard.Cal(dummyscore)
 	fmt.Printf("사용할 포트 입력 (수정 : 3000, 성현 : 8000) : ")
 	fmt.Scanf("%d", &port)
 	Start(port)

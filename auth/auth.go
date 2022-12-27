@@ -15,11 +15,11 @@ import (
 var Sessions = map[string]session{}
 
 type session struct {
-	userid 		string
-	expiry 		time.Time
-	auth		string
-	vmname		string
-	vmexpiry	time.Time
+	userid   string
+	expiry   time.Time
+	auth     string
+	vmname   string
+	vmexpiry time.Time
 }
 
 type User struct {
@@ -110,10 +110,10 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 			expiresAt := time.Now().Add(180 * time.Second)
 
 			Sessions[sessionToken] = session{
-				userid: new.Id,
-				expiry: expiresAt,
-				auth: auth,
-				vmname: "",
+				userid:   new.Id,
+				expiry:   expiresAt,
+				auth:     auth,
+				vmname:   "",
 				vmexpiry: expiresAt,
 			}
 
@@ -142,21 +142,21 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 			}{userSession.userid}
 
 			enc.Encode(data)
-			fmt.Println(data)
+			// fmt.Println(data)
 			fmt.Println("success!")
 		} else {
 			//fail
-			fmt.Println("login fail")
+			// fmt.Println("login fail")
 			fmt.Fprint(w, "로그인에 실패했습니다")
-			// type Test struct {
-			// 	Id   int    `json:"id"`
-			// 	Name string `json:"name"`
-			// }
-			// u := Test{1, "Go"}
-			// w.Header().Set("Content-Type", "application/json")
+			type Fail struct {
+				Status string `json:"status"`
+			}
+			u := Fail{Status: "fail"}
+			w.Header().Set("Content-Type", "application/json")
 			// enc.Encode(u)
+			json.NewEncoder(w).Encode(u)
 			// http.Redirect(w, r, "URL_TO_LOGIN_PAGE", http.StatusSeeOther)
-			return
+			// return
 		}
 	}
 }

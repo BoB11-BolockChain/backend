@@ -34,6 +34,7 @@ type TacticHash struct {
 	Id       int           `json:"id"`
 	Title    string        `json:"title"`
 	Sequence int           `json:"sequence"`
+	Delay    int           `json:"delay"`
 	Payloads []PayloadHash `json:"payloads"`
 	Hash     string        `json:"hash"`
 }
@@ -62,13 +63,13 @@ func GetTraining(w http.ResponseWriter, r *http.Request) {
 		utils.HandleError(err)
 		c.Hash = utils.Hash(c)
 
-		rows, err := db.Query("select id,title,sequence from tactic where challenge_id=?", c.Id)
+		rows, err := db.Query("select id,title,sequence,delay from tactic where challenge_id=?", c.Id)
 		utils.HandleError(err)
 		defer rows.Close()
 
 		for rows.Next() {
 			ta := TacticHash{}
-			err = rows.Scan(&ta.Id, &ta.Title, &ta.Sequence)
+			err = rows.Scan(&ta.Id, &ta.Title, &ta.Sequence, &ta.Delay)
 			utils.HandleError(err)
 			ta.Hash = utils.Hash(ta)
 
@@ -94,13 +95,13 @@ func GetTraining(w http.ResponseWriter, r *http.Request) {
 
 func GetAllTrainings(w http.ResponseWriter, r *http.Request) {
 	db := database.DB()
-	rows, err := db.Query("select id,title,description,system,score from scenario")
+	rows, err := db.Query("select id,title,description,system,score,visible from scenario")
 	utils.HandleError(err)
 
 	trainings := make([]TrainingHash, 0)
 	for rows.Next() {
 		s := TrainingHash{}
-		rows.Scan(&s.Id, &s.Title, &s.Description, &s.System, &s.Score)
+		rows.Scan(&s.Id, &s.Title, &s.Description, &s.System, &s.Score, &s.Visible)
 		trainings = append(trainings, s)
 	}
 

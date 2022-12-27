@@ -1,7 +1,6 @@
 package training
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,44 +9,6 @@ import (
 	"github.com/backend/utils"
 )
 
-// type CreateTrainingDTO struct {
-// 	Id         int            `json:"id"`
-// 	Scenario   ScenarioDTO    `json:"scenario"`
-// 	Challenges []ChallengeDTO `json:"challenges"`
-// }
-// type ScenarioDTO struct {
-// 	Title       string `json:"title"`
-// 	Description string `json:"description"`
-// 	System      string `json:"system"`
-// 	Score       int    `json:"score"`
-// 	Vm_name     string `json:"vm_name"`
-// }
-// type ChallengeDTO struct {
-// 	Id          int         `json:"id"`
-// 	Title       string      `json:"title"`
-// 	Description string      `json:"description"`
-// 	Score       int         `json:"score"`
-// 	Flag        string      `json:"flag"`
-// 	Sequence    int         `json:"sequence"`
-// 	Tactics     []TacticDTO `json:"tactics"`
-// }
-// type TacticDTO struct {
-// 	Id       int          `json:"id"`
-// 	Title    string       `json:"title"`
-// 	Sequence int          `json:"sequence"`
-// 	Payloads []PayloadDTO `json:"payloads"`
-// }
-// type PayloadDTO struct {
-// 	Id       int    `json:"id"`
-// 	Payload  string `json:"payload"`
-// 	Sequence int    `json:"sequence"`
-// }
-
-/*
-Sequence starts from 0
-
-sequence 0 dont disturb logic (only id i think)
-*/
 func CreateTraining(w http.ResponseWriter, r *http.Request) {
 	create := TrainingHash{}
 	err := json.NewDecoder(r.Body).Decode(&create)
@@ -68,7 +29,7 @@ func CreateTraining(w http.ResponseWriter, r *http.Request) {
 	utils.HandleError(err)
 	defer stmtc.Close()
 
-	stmtt, err := db.Prepare("insert into tactic(title, sequence, challenge_id) values(?,?,?)")
+	stmtt, err := db.Prepare("insert into tactic(title,sequence,challenge_id,delay) values(?,?,?,?)")
 	utils.HandleError(err)
 	defer stmtt.Close()
 
@@ -83,7 +44,7 @@ func CreateTraining(w http.ResponseWriter, r *http.Request) {
 		challengeId, _ := cres.LastInsertId()
 
 		for j, t := range v.Tactics {
-			tres, err := stmtt.Exec(t.Title, j+1, challengeId)
+			tres, err := stmtt.Exec(t.Title, j+1, challengeId, t.Delay)
 			utils.HandleError(err)
 
 			tacticId, _ := tres.LastInsertId()
@@ -103,66 +64,46 @@ func EditTraining(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&body)
 	utils.HandleError(err)
 
-	tx, err := database.DB().Begin()
+	db := database.DB()
+	db.Exec("PRAGMA foreign_keys = ON")
+
+	tx, err := db.Begin()
 	utils.HandleError(err)
 	defer tx.Rollback()
 
 	tx.Exec("PRAGMA foreign_keys = ON")
 
+	visible := 0
+	if body.Visible {
+		visible = 1
+	}
 	if body.Id == 0 {
-		_, nerr := tx.Exec("insert into scenario(title,description,system,score,vm_name,vm_id,vm_pw) values(?,?,?,?,?,?,?)", body.Title, body.Description, body.System, body.Score, body.Vm_name, body.Vm_id, body.Vm_pw)
+		_, nerr := tx.Exec("insert into scenario(title,description,system,score,vm_name,vm_id,vm_pw,visible) values(?,?,?,?,?,?,?,?)", body.Title, body.Description, body.System, body.Score, body.Vm_name, body.Vm_id, body.Vm_pw, visible)
 		utils.HandleError(nerr)
 	} else {
-		_, nerr := tx.Exec("update scenario set title=?, description=?, system=?, score=?, vm_name=?,vm_id=?,vm_pw=? where id=?", body.Title, body.Description, body.System, body.Score, body.Vm_name, body.Id, body.Vm_id, body.Vm_pw)
+		_, nerr := tx.Exec("update scenario set title=?, description=?, system=?, score=?, vm_name=?,vm_id=?,vm_pw=?,visible=? where id=?", body.Title, body.Description, body.System, body.Score, body.Vm_name, body.Vm_id, body.Vm_pw, visible, body.Id)
 		utils.HandleError(nerr)
 	}
 
-	//remove chall from db if not exists
-	cMap := make(map[int]ChallengeHash)
-	for _, ch := range body.Challenges {
-		cMap[ch.Id] = ch
-	}
-	rows, err := tx.Query("select id from challenge where scenario_id=?", body.Id)
+	_, err = tx.Exec("delete from challenge where scenario_id=?", body.Id)
 	utils.HandleError(err)
-	for rows.Next() {
-		var challId int
-		rows.Scan(&challId)
-		_, a := cMap[challId]
-		if !a {
-			_, err = tx.Exec("delete from challenge where id=?", challId)
-			utils.HandleError(err)
-		}
-	}
 
-	for i, ch := range body.Challenges {
-		var challId int64
-		// ch.id can be 0(nil) and something exists
+	for i, v := range body.Challenges {
+		res, err := tx.Exec("insert into challenge(title,description,score,flag,sequence,scenario_id) values(?,?,?,?,?,?)", v.Title, v.Description, v.Score, v.Flag, i+1, body.Id)
+		utils.HandleError(err)
 
-		var dummy int
-		err = tx.QueryRow("select id from challenge where id=?", ch.Id).Scan(&dummy)
-		if err == sql.ErrNoRows {
-			res, err := tx.Exec("insert into challenge(title,description,score,flag,sequence,scenario_id) values(?,?,?,?,?,?)", ch.Title, ch.Description, ch.Score, ch.Flag, i+1, body.Id)
-			utils.HandleError(err)
-			challId, err = res.LastInsertId()
-			utils.HandleError(err)
-		} else {
-			utils.HandleError(err)
-			challId = int64(ch.Id)
-			_, err = tx.Exec("update challenge set title=?,description=?,score=?,flag=?,sequence=? where id=?", ch.Title, ch.Description, ch.Score, ch.Flag, i+1, challId)
-			utils.HandleError(err)
-			_, err = tx.Exec("delete from tactic where challenge_id=?", challId)
-			utils.HandleError(err)
-		}
+		challCreatedId, err := res.LastInsertId()
+		utils.HandleError(err)
 
-		for i2, th := range ch.Tactics {
-			var tacticId int64
-			res, err := tx.Exec("insert into tactic(title, sequence, challenge_id) values(?,?,?)", th.Title, i2+1, challId)
-			utils.HandleError(err)
-			tacticId, err = res.LastInsertId()
+		for j, t := range v.Tactics {
+			tres, err := tx.Exec("insert into tactic(title,sequence,challenge_id,delay) values(?,?,?,?)", t.Title, j+1, challCreatedId, t.Delay)
 			utils.HandleError(err)
 
-			for i3, ph := range th.Payloads {
-				_, err = tx.Exec("insert into payload(payload,sequence,tactic_id) values(?,?,?)", ph.Payload, i3+1, tacticId)
+			tacticCreatedId, err := tres.LastInsertId()
+			utils.HandleError(err)
+
+			for k, p := range t.Payloads {
+				_, err := tx.Exec("insert into payload(payload,sequence,tactic_id) values(?,?,?)", p.Payload, k+1, tacticCreatedId)
 				utils.HandleError(err)
 			}
 		}
